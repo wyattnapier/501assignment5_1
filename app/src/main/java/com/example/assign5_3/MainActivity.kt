@@ -1,6 +1,7 @@
 package com.example.assign5_3
 
 import android.os.Bundle
+import android.renderscript.ScriptGroup
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -8,8 +9,10 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,15 +23,20 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.RemoveRedEye
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -120,7 +128,7 @@ fun MainScreen(viewModel: MainViewModel) {
                     GenericScreen(screenName = "Recipe not found")
                 }
             }
-            composable(Screen.AddRecipe.route) { GenericScreen(screenName = Screen.AddRecipe.title) }
+            composable(Screen.AddRecipe.route) { AddRecipeScreen(vm = viewModel, navController = navController, modifier = Modifier.padding(horizontal=8.dp)) }
             composable(Screen.Settings.route) { GenericScreen(screenName = Screen.Settings.title) }
         }
     }
@@ -145,15 +153,6 @@ fun BottomNavigationBar(navController: androidx.navigation.NavController) {
                     dest.route?.startsWith(screen.route.substringBefore("/{")) == true
                 } == true,
 
-//                onClick = {
-//                    navController.navigate(screen.route.substringBefore("/{")) {
-//                        popUpTo(navController.graph.findStartDestination().id) {
-//                            saveState = true
-//                        }
-//                        launchSingleTop = true
-//                        restoreState = true
-//                    }
-//                }
                 onClick = {
                     val baseRoute = screen.route.substringBefore("/{")
 
@@ -210,6 +209,98 @@ fun ViewRecipeScreen(recipe: Recipe, modifier: Modifier = Modifier) {
     }
 }
 
+@Composable
+fun AddRecipeScreen(vm: MainViewModel, navController: NavController, modifier: Modifier = Modifier) {
+    var title by remember { mutableStateOf("") }
+    var ingredients by remember { mutableStateOf("") }
+    var instructions by remember { mutableStateOf("") }
+    var isTitleEmpty by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(text = "Add a New Recipe", style = MaterialTheme.typography.headlineMedium)
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 2. Text field for the recipe title
+        OutlinedTextField(
+            value = title,
+            onValueChange = {
+                title = it
+                isTitleEmpty = it.isBlank() // Check if the title is blank
+            },
+            label = { Text("Recipe Title") },
+            modifier = Modifier.fillMaxWidth(),
+            isError = isTitleEmpty, // Show error if title is empty
+            singleLine = true
+        )
+        if (isTitleEmpty) {
+            Text(
+                text = "Title cannot be empty",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.align(Alignment.Start)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        // 3. Text field for ingredients
+        OutlinedTextField(
+            value = ingredients,
+            onValueChange = { ingredients = it },
+            label = { Text("Ingredients (one per line)") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f) // Use weight to take up available space
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 4. Text field for instructions
+        OutlinedTextField(
+            value = instructions,
+            onValueChange = { instructions = it },
+            label = { Text("Instructions (one per line)") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+        // 5. Save button
+        Button(
+            onClick = {
+                isTitleEmpty = title.isBlank()
+                if (!isTitleEmpty) {
+                    // Create the new recipe object
+                    val newRecipe = Recipe(
+                        title = title.trim(),
+                        // Split the strings by newline, trim whitespace, and filter out empty lines
+                        ingredients = ingredients.lines().map { it.trim() }.filter { it.isNotEmpty() },
+                        instructions = instructions.lines().map { it.trim() }.filter { it.isNotEmpty() }
+                    )
+                    // Call the ViewModel to add the recipe
+                    vm.addRecipe(newRecipe)
+                    // Navigate back to the home screen
+                    navController.navigate(Screen.Home.route) {
+                        // Clear the back stack to prevent going back to the add screen
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            inclusive = true
+                        }
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            // Disable the button if the title is empty
+            enabled = title.isNotBlank()
+        ) {
+            Text("SAVE RECIPE")
+        }
+
+    }
+}
 
 @Composable
 fun GenericScreen(screenName: String, modifier: Modifier = Modifier) {
